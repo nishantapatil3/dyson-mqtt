@@ -28,6 +28,14 @@ test('supports older Link power and rejects invalid commands', () => {
   assert.throws(() => commandFromTopic('target_temperature', Buffer.from('NaN')));
 });
 
+test('thermostat modes control power and heating together', () => {
+  assert.deepEqual(commandFromTopic('mode', Buffer.from('COOL'), { fpwr: 'OFF', hmod: 'HEAT' }).data, { fpwr: 'ON', hmod: 'OFF' });
+  assert.deepEqual(commandFromTopic('mode', Buffer.from('HEAT')).data, { fpwr: 'ON', hmod: 'HEAT' });
+  assert.deepEqual(commandFromTopic('mode', Buffer.from('OFF')).data, { fpwr: 'OFF', hmod: 'OFF' });
+  assert.deepEqual(commandFromTopic('mode', Buffer.from('cool'), { fmod: 'OFF' }).data, { fmod: 'FAN', hmod: 'OFF' });
+  assert.throws(() => commandFromTopic('mode', Buffer.from('AUTO')));
+});
+
 test('discovery uses stable identifiers and command topics', () => {
   const messages = discoveryMessages({ topicPrefix: 'dyson', discoveryPrefix: 'homeassistant' }, { serial: 'AB1-CD', name: 'Purifier', productType: '438' });
   assert.equal(messages[0][0], 'homeassistant/fan/dyson_ab1_cd/config');

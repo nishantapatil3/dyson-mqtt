@@ -1,13 +1,17 @@
 {
   "name": "dyson-mqtt",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Dyson cloud MQTT bridge for air treatment devices",
   "scripts": {
     "start": "node src/server.js",
     "test": "node --test"
   },
-  "engines": { "node": ">=20" },
-  "dependencies": { "mqtt": "^5.15.0" },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "mqtt": "^5.15.0"
+  },
   "license": "MIT"
 }

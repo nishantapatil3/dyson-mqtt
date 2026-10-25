@@ -42,6 +42,8 @@ For serial `AB1-CD` and default prefix:
 | `dyson/AB1-CD/raw/<message-type>` | bridge → broker | Unretained Dyson JSON messages |
 | `dyson/AB1-CD/set/<command>` | broker → bridge | Command payloads described below |
 
+`mode` accepts `OFF`, `HEAT`, or `COOL` for heater models: `OFF` powers the device off, `HEAT` powers it on with heating enabled, and `COOL` powers it on with heating disabled (fan only).
+
 Commands: `power`, `auto`, `oscillation`, `night_mode`, `direction`, `continuous_monitoring`, `heating`, and `humidification` accept `ON` or `OFF`. `speed` accepts `1`–`10`; `percentage` accepts `0`–`100` (`0` turns the fan off). `preset_mode` accepts `Auto` or `Manual`. `target_temperature` accepts Celsius `1`–`37`; `humidity_target` accepts `30`–`70`. `request` with payload `STATE` requests a fresh product state. Unsupported controls are ignored by the device; capabilities vary by model.
 
 Home Assistant discovery publishes a fan and environmental sensors. The bridge publishes measured VOC and NO₂ values as **indices**, not concentrations. Raw Dyson values are preserved in `product_state` and `sensor_data` for model-specific automations.

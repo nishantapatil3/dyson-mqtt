@@ -70,6 +70,15 @@ export function commandFromTopic(command, payload, product = {}) {
     data = product.fmod !== undefined ? { fmod: value === 'Auto' ? 'AUTO' : 'FAN' } : { auto: value === 'Auto' ? 'ON' : 'OFF' };
   } else if (command in ON_OFF_FIELDS && ['ON', 'OFF'].includes(value.toUpperCase())) {
     data = { [ON_OFF_FIELDS[command]]: value.toUpperCase() };
+  } else if (command === 'mode' && ['OFF', 'HEAT', 'COOL'].includes(value.toUpperCase())) {
+    const mode = value.toUpperCase();
+    const power = mode === 'OFF' ? 'OFF' : 'ON';
+    data = {
+      ...(product.fmod !== undefined && product.fpwr === undefined
+        ? { fmod: power === 'ON' ? 'FAN' : 'OFF' }
+        : { fpwr: power }),
+      hmod: mode === 'HEAT' ? 'HEAT' : 'OFF'
+    };
   } else if (command === 'heating' && ['ON', 'OFF'].includes(value.toUpperCase())) {
     data = { hmod: value.toUpperCase() === 'ON' ? 'HEAT' : 'OFF' };
   } else if (command === 'target_temperature' && Number.isFinite(Number(value)) && Number(value) >= 1 && Number(value) <= 37) {
