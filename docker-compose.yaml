@@ -1,7 +1,6 @@
 services:
   dyson-mqtt:
-    image: dyson-mqtt:local
-    build: .
+    image: ghcr.io/nishantapatil3/dyson-mqtt:latest
     container_name: dyson-mqtt
     restart: unless-stopped
     ports:

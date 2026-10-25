@@ -2,7 +2,7 @@
   "name": "dyson-mqtt",
   "version": "0.1.0",
   "type": "module",
-  "description": "Local Dyson air treatment devices to MQTT bridge",
+  "description": "Dyson cloud MQTT bridge for air treatment devices",
   "scripts": {
     "start": "node src/server.js",
     "test": "node --test"
