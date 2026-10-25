@@ -1,0 +1,13 @@
+{
+  "name": "dyson-mqtt",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Local Dyson air treatment devices to MQTT bridge",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": { "mqtt": "^5.15.0" },
+  "license": "MIT"
+}

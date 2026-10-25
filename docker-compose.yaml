@@ -1,0 +1,12 @@
+services:
+  dyson-mqtt:
+    image: dyson-mqtt:local
+    build: .
+    container_name: dyson-mqtt
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - dyson-mqtt-data:/app/data
+volumes:
+  dyson-mqtt-data:

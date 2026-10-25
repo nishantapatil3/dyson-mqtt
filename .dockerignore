@@ -1,0 +1,7 @@
+node_modules
+.git
+.dyson-auth
+config.json
+.env
+dyson-mqtt.env
+test

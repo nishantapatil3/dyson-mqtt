@@ -1,0 +1,15 @@
+{
+  "mqttUrl": "mqtt://localhost:1883",
+  "topicPrefix": "dyson",
+  "discoveryPrefix": "homeassistant",
+  "mode": "cloud",
+  "dysonCloud": { "token": "YOUR_MYDYSON_ACCESS_TOKEN", "china": false },
+  "pollIntervalSeconds": 300,
+  "devices": [
+    {
+      "name": "Living Room Purifier",
+      "serial": "AB1-CD-EFG2345H",
+      "productType": "438"
+    }
+  ]
+}

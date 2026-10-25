@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dyson MQTT setup</title>
+<style>
+  body{font:16px system-ui,sans-serif;background:#f5f7fa;color:#172033;margin:0;padding:32px}
+  main{max-width:680px;margin:auto;background:white;padding:32px;border-radius:16px;box-shadow:0 6px 30px #17203316}
+  h1{margin-top:0} h2{font-size:1.2rem;margin-top:30px} label{display:block;margin:14px 0 6px;font-weight:600}
+  input[type=text],input[type=email],input[type=password]{box-sizing:border-box;width:100%;padding:11px;border:1px solid #aab3c0;border-radius:7px;font:inherit}
+  button{background:#243b7b;color:white;border:0;border-radius:7px;padding:11px 17px;font:inherit;cursor:pointer;margin-top:16px}
+  button:hover{background:#172a60}.hint{color:#526077}.error{color:#a51d2d}.ok{color:#146b35}.device{padding:14px;border:1px solid #d9dee6;border-radius:8px;margin:12px 0}
+  section[hidden]{display:none} #message{min-height:1.5em} code{background:#edf0f5;padding:2px 4px}
+</style>
+<main>
+  <h1>Dyson MQTT</h1>
+  <p class="hint">Connect your MyDyson account to bridge supported air treatment devices through Dyson's cloud MQTT gateway. No device IP address is needed.</p>
+  <p id="status">Checking bridge…</p><p id="message" role="status"></p>
+  <section id="login">
+    <h2>1. Request email code</h2>
+    <form id="start"><label for="email">MyDyson email</label><input id="email" type="email" autocomplete="username" required><label><input id="china" type="checkbox"> Account registered in China</label><button>Send code</button></form>
+  </section>
+  <section id="verify" hidden>
+    <h2>2. Verify your account</h2>
+    <form id="finish"><label for="password">MyDyson password</label><input id="password" type="password" autocomplete="current-password" required><label for="code">Six-digit email code</label><input id="code" type="text" inputmode="numeric" pattern="[0-9]{6}" required><button>Verify and find devices</button></form>
+  </section>
+  <section id="configure" hidden>
+    <h2>3. Connect devices to your MQTT broker</h2>
+    <form id="save"><label for="broker">MQTT broker URL</label><input id="broker" type="text" value="mqtt://host.docker.internal:1883" required><p class="hint">Include broker username and password in the URL if needed. Use <code>host.docker.internal</code> for a broker on this computer.</p><div id="devices"></div><button>Save and start bridge</button></form>
+  </section>
+</main>
+<script>
+  const $=id=>document.getElementById(id);
+  let devices=[];
+  async function api(path,body){const response=await fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const result=await response.json();if(!response.ok)throw Error(result.error||'Request failed');return result}
+  function message(value,error=false){$('message').textContent=value;$('message').className=error?'error':'ok'}
+  async function status(){const result=await(await fetch('/api/status')).json();$('status').textContent=result.running?`Bridge running: ${result.devices.map(d=>`${d.name} (${d.online?'online':'offline'})`).join(', ')}`:'Bridge awaiting setup'}
+  $('start').onsubmit=async event=>{event.preventDefault();try{message('Requesting code…');await api('/api/auth/start',{email:$('email').value,china:$('china').checked});$('verify').hidden=false;message('Check your email for the Dyson code.')}catch(error){message(error.message,true)}};
+  function showDevices(found){devices=found;if(!devices.length){message('No supported Dyson air treatment devices were found.',true);return}const container=$('devices');container.replaceChildren();for(const device of devices){const box=document.createElement('div');box.className='device';const label=document.createElement('label');const checked=document.createElement('input');checked.type='checkbox';checked.checked=true;checked.dataset.serial=device.serial;label.append(checked,document.createTextNode(` ${device.name} (${device.serial}, ${device.productType})`));box.append(label);container.append(box)}$('configure').hidden=false;message('Select devices, then save to start the cloud bridge.')}
+  $('finish').onsubmit=async event=>{event.preventDefault();try{message('Verifying…');const result=await api('/api/auth/verify',{password:$('password').value,code:$('code').value});$('password').value='';$('code').value='';showDevices(result.devices)}catch(error){message(error.message,true)}};
+  $('save').onsubmit=async event=>{event.preventDefault();try{const selected=devices.filter(device=>document.querySelector(`input[data-serial="${device.serial}"]`).checked).map(device=>({serial:device.serial}));await api('/api/configure',{mqttUrl:$('broker').value.trim(),devices:selected});message('Saved. The cloud bridge is starting.');await status()}catch(error){message(error.message,true)}};
+  status();fetch('/api/auth/devices').then(response=>response.json()).then(result=>{if(result.devices?.length)showDevices(result.devices)}).catch(()=>{});setInterval(status,10000);
+</script>
+</html>
