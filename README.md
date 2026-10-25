@@ -7,8 +7,10 @@ A cloud MQTT bridge for Wi-Fi Dyson fans, purifiers, heaters, and humidifiers. I
 Requires Docker and an MQTT broker such as Mosquitto. Run:
 
 ```sh
-docker compose up -d --build
+docker compose up -d
 ```
+
+Compose pulls the published multi-architecture image from [`ghcr.io/nishantapatil3/dyson-mqtt`](https://github.com/nishantapatil3/dyson-mqtt/pkgs/container/dyson-mqtt). To pull it manually, run `docker pull ghcr.io/nishantapatil3/dyson-mqtt:latest`.
 
 Open **http://localhost:3100**. Enter your MyDyson email, the code Dyson sends, and your account password. Select your devices and enter your MQTT broker URL, then save. The setup page stores the MyDyson access token in the Docker volume and retrieves fresh cloud MQTT credentials on each connection; it does not save your account password. The setup page is published only on the host's loopback interface. The container needs Internet access to Dyson and network access to your MQTT broker. If your broker runs on the Docker host, use `host.docker.internal` in `mqttUrl`.
 
