@@ -35,8 +35,10 @@ export function normalizeSensor(value, scale = 1, offset = 0) {
 
 export function stateView(product, sensors) {
   const speed = product.fnsp === 'AUTO' ? null : normalizeSensor(product.fnsp);
+  const power = product.fpwr !== undefined ? (product.fpwr === 'ON' ? 'ON' : 'OFF') : product.fmod !== undefined ? (product.fmod === 'OFF' ? 'OFF' : 'ON') : (product.fnst === 'FAN' ? 'ON' : 'OFF');
   return {
-    power: product.fpwr !== undefined ? (product.fpwr === 'ON' ? 'ON' : 'OFF') : product.fmod !== undefined ? (product.fmod === 'OFF' ? 'OFF' : 'ON') : (product.fnst === 'FAN' ? 'ON' : 'OFF'),
+    power,
+    mode: power === 'OFF' ? 'OFF' : product.hmod === 'HEAT' ? 'HEAT' : 'COOL',
     percentage: speed === null ? 0 : Math.max(0, Math.min(100, speed * 10)),
     preset_mode: product.auto === 'ON' || product.fmod === 'AUTO' || product.fnsp === 'AUTO' ? 'Auto' : 'Manual',
     oscillating: product.oson === 'ON',

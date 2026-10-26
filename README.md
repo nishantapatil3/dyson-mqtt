@@ -44,6 +44,8 @@ For serial `AB1-CD` and default prefix:
 
 `mode` accepts `OFF`, `HEAT`, or `COOL` for heater models: `OFF` powers the device off, `HEAT` powers it on with heating enabled, and `COOL` powers it on with heating disabled (fan only).
 
+The state payload also includes `mode` with the same `OFF`, `HEAT`, and `COOL` values. For a Homebridge `mqttthing` thermostat, allow target heating/cooling states `[0, 1, 2]`, read `mode` from `dyson/AB1-CD/state`, and publish target state changes to `dyson/AB1-CD/set/mode`. Replace `AB1-CD` with the device serial. `COOL` is fan-only operation, not active refrigeration.
+
 Commands: `power`, `auto`, `oscillation`, `night_mode`, `direction`, `continuous_monitoring`, `heating`, and `humidification` accept `ON` or `OFF`. `speed` accepts `1`–`10`; `percentage` accepts `0`–`100` (`0` turns the fan off). `preset_mode` accepts `Auto` or `Manual`. `target_temperature` accepts Celsius `1`–`37`; `humidity_target` accepts `30`–`70`. `request` with payload `STATE` requests a fresh product state. Unsupported controls are ignored by the device; capabilities vary by model.
 
 Home Assistant discovery publishes a fan and environmental sensors. The bridge publishes measured VOC and NO₂ values as **indices**, not concentrations. Raw Dyson values are preserved in `product_state` and `sensor_data` for model-specific automations.
