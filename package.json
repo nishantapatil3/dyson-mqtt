@@ -1,6 +1,6 @@
 {
   "name": "dyson-mqtt",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Dyson cloud MQTT bridge for air treatment devices",
   "scripts": {

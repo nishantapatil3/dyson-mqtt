@@ -4,6 +4,7 @@ import { dirname } from 'node:path';
 import { loadConfig } from './config.js';
 import { DysonBridge } from './bridge.js';
 import { DysonCloud } from './dyson-cloud.js';
+import { isLocalHost } from './web-access.js';
 
 const configPath = process.env.DYSON_MQTT_CONFIG ?? '/app/data/config.json';
 const authPath = process.env.DYSON_MQTT_AUTH ?? '/app/data/auth.json';
@@ -48,7 +49,7 @@ async function input(request) {
 
 const server = createServer(async (request, response) => {
   const host = request.headers.host ?? '';
-  if (!/^((localhost|127\.0\.0\.1):\d+)$/.test(host)) return send(response, 403, { error: 'Local access only' });
+  if (!isLocalHost(host)) return send(response, 403, { error: 'Local network access only' });
   if (request.method === 'GET' && request.url === '/') {
     response.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'" });
     response.end(html);
