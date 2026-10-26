@@ -22,12 +22,14 @@ export class DysonBridge {
     this.broker.publish(topic, typeof payload === 'string' ? payload : JSON.stringify(payload), { retain, qos: 0 }, error => {
       if (error) this.logger.error(`Publish failed for ${topic}: ${error.message}`);
     });
+    this.logger.debug?.(`Published ${topic}`);
   }
 
   base(serial) { return `${this.config.topicPrefix}/${serial}`; }
 
   start() {
     const { config } = this;
+    this.logger.info(`Starting ${config.mode === 'cloud' ? 'cloud' : 'local'} bridge for ${this.devices.size} devices`);
     this.broker = this.connect(config.mqttUrl, {
       clientId: `dyson-mqtt-${process.pid}`,
       will: { topic: `${config.topicPrefix}/bridge/availability`, payload: 'offline', qos: 0, retain: true }
@@ -36,6 +38,7 @@ export class DysonBridge {
       this.logger.info('Connected to MQTT broker');
       this.broker.subscribe(`${config.topicPrefix}/+/set/+`, error => {
         if (error) this.logger.error(`Broker subscribe failed: ${error.message}`);
+        else this.logger.debug?.('Subscribed to MQTT commands');
       });
       this.publish(`${config.topicPrefix}/bridge/availability`, 'online');
       for (const [serial, device] of this.devices) {
@@ -47,6 +50,9 @@ export class DysonBridge {
     this.broker.on('message', (topic, payload, packet) => {
       if (!packet?.retain) this.handleCommand(topic, payload);
     });
+    this.broker.on('close', () => {
+      if (!this.stopped) this.logger.warn('Disconnected from MQTT broker');
+    });
     this.broker.on('error', error => this.logger.error(`Broker: ${error.message}`));
     for (const [serial, device] of this.devices) this.connectDevice(serial, device);
   }
@@ -57,6 +63,7 @@ export class DysonBridge {
       this.connectCloudDevice(serial, device);
       return;
     }
+    this.logger.info(`Connecting to local Dyson ${serial}`);
     const client = this.connect(`mqtt://${details.host}:${details.port}`, {
       username: serial, password: details.password,
       protocolId: 'MQIsdp', protocolVersion: 3,
@@ -91,6 +98,7 @@ export class DysonBridge {
 
   async connectCloudDevice(serial, device) {
     if (this.stopped) return;
+    this.logger.info(`Connecting to Dyson cloud for ${serial}`);
     try {
       const { Endpoint, IoTCredentials: auth } = await this.cloud.iotCredentials(this.config.dysonCloud.token, serial);
       if (this.stopped) return;
@@ -152,18 +160,22 @@ export class DysonBridge {
     if (!client?.connected) return;
     const topic = `${device.config.productType}/${serial}/command`;
     for (const msg of REQUESTS) client.publish(topic, JSON.stringify({ msg, time: new Date().toISOString() }));
+    this.logger.debug?.(`Requested state from Dyson ${serial}`);
   }
 
   handleDeviceMessage(serial, topic, payload) {
     const device = this.devices.get(serial);
     const message = parseMessage(payload);
     if (!message) { this.logger.warn(`Ignoring invalid JSON from Dyson ${serial}`); return; }
+    this.logger.debug?.(`Received ${message.msg} from Dyson ${serial} on ${topic}`);
     if (this.config.mode === 'cloud') {
       if (message.msg === 'GOODBYE' || message.msg === 'GONE-AWAY') {
+        if (device.online) this.logger.warn(`Dyson ${serial} went offline`);
         device.online = false;
         this.publish(`${this.base(serial)}/availability`, 'offline');
       } else if (!device.online && ['HELLO', 'IM-BACK', 'CURRENT-STATE', 'STATE-CHANGE', 'ENVIRONMENTAL-CURRENT-SENSOR-DATA'].includes(message.msg)) {
         device.online = true;
+        this.logger.info(`Dyson ${serial} is online`);
         this.publish(`${this.base(serial)}/availability`, 'online');
       }
     }
@@ -188,20 +200,26 @@ export class DysonBridge {
     const command = parts[prefix.length + 2];
     const device = this.devices.get(serial);
     const client = this.clients.get(serial);
-    if (!device || !client?.connected) return;
+    if (!device) return;
+    if (!client?.connected) {
+      this.logger.warn(`Ignoring ${command} command for offline Dyson ${serial}`);
+      return;
+    }
     try {
       const message = commandFromTopic(command, payload, device.product);
       client.publish(`${device.config.productType}/${serial}/command`, JSON.stringify(message), error => {
         if (error) this.logger.error(`Dyson ${serial} command failed: ${error.message}`);
+        else this.logger.info(`Sent ${command} command to Dyson ${serial}`);
       });
     } catch (error) {
-      this.logger.warn(`Dyson ${serial}: ${error.message}`);
+      this.logger.warn(`Rejected ${command} command for Dyson ${serial}`);
     }
   }
 
   stop() {
     if (this.stopped) return;
     this.stopped = true;
+    this.logger.info('Stopping Dyson bridge');
     for (const [serial, device] of this.devices) {
       if (device.poller) clearInterval(device.poller);
       if (device.retryTimer) clearTimeout(device.retryTimer);

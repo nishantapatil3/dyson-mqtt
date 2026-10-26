@@ -41,3 +41,14 @@ test('bridges state and valid commands between separate MQTT connections', () =>
   assert.equal(broker.published.findLast(item => item.topic === 'dyson/AB1-CD/availability').payload, 'offline');
   bridge.stop();
 });
+
+test('invalid command logs omit the payload', () => {
+  const warnings = [];
+  const config = { mqttUrl: 'mqtt://broker', topicPrefix: 'dyson', discoveryPrefix: 'homeassistant', pollIntervalSeconds: 0,
+    devices: [{ name: 'Purifier', host: '192.0.2.10', port: 1883, serial: 'AB1-CD', productType: '438', password: 'secret' }] };
+  const bridge = new DysonBridge(config, () => new FakeClient(), { info() {}, warn(message) { warnings.push(message); }, error() {} });
+  bridge.start();
+  bridge.handleCommand('dyson/AB1-CD/set/power', Buffer.from('private-payload'));
+  assert.deepEqual(warnings, ['Rejected power command for Dyson AB1-CD']);
+  bridge.stop();
+});

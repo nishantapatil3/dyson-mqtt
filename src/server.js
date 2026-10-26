@@ -5,7 +5,9 @@ import { loadConfig } from './config.js';
 import { DysonBridge } from './bridge.js';
 import { DysonCloud } from './dyson-cloud.js';
 import { isLocalHost } from './web-access.js';
+import { createLogger } from './logger.js';
 
+const logger = createLogger();
 const configPath = process.env.DYSON_MQTT_CONFIG ?? '/app/data/config.json';
 const authPath = process.env.DYSON_MQTT_AUTH ?? '/app/data/auth.json';
 const port = Number(process.env.DYSON_MQTT_PORT ?? 3100);
@@ -15,18 +17,19 @@ let discovered = [];
 let authorized;
 
 try { authorized = JSON.parse(await readFile(authPath, 'utf8')); } catch (error) {
-  if (error.code !== 'ENOENT') console.error(`Saved authentication: ${error.message}`);
+  if (error.code !== 'ENOENT') logger.error(`Saved authentication: ${error.message}`);
 }
 
 async function startBridge() {
-  const next = new DysonBridge(await loadConfig(configPath));
+  const next = new DysonBridge(await loadConfig(configPath), undefined, logger);
   bridge?.stop();
   bridge = next;
   bridge.start();
 }
 
 try { await startBridge(); } catch (error) {
-  if (error.code !== 'ENOENT') console.error(`Bridge configuration: ${error.message}`);
+  if (error.code === 'ENOENT') logger.info('Waiting for setup configuration');
+  else logger.error(`Bridge configuration: ${error.message}`);
 }
 
 const html = await readFile(new URL('./setup.html', import.meta.url));
@@ -77,6 +80,7 @@ const server = createServer(async (request, response) => {
       const cloud = new DysonCloud(body.china === true);
       challenge = { email: body.email, cloud, id: await cloud.begin(body.email), time: Date.now() };
       discovered = [];
+      logger.info('Dyson login challenge requested');
       return send(response, 200, { ok: true });
     }
     if (request.url === '/api/auth/verify') {
@@ -88,6 +92,7 @@ const server = createServer(async (request, response) => {
       await writeFile(authPath, JSON.stringify(authorized), { mode: 0o600 });
       discovered = await challenge.cloud.devices(token);
       challenge = undefined;
+      logger.info(`Dyson login verified; found ${discovered.length} supported devices`);
       return send(response, 200, { devices: discovered });
     }
     if (!authorized || !discovered.length) throw new Error('Log in and retrieve devices first');
@@ -104,16 +109,18 @@ const server = createServer(async (request, response) => {
     await writeFile(configPath, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
     await startBridge();
     discovered = [];
+    logger.info(`Configuration saved; started bridge for ${devices.length} devices`);
     return send(response, 200, { ok: true });
   } catch (error) {
-    console.error(`Setup request failed: ${error.message}`);
+    logger.warn(`Setup request failed: ${error.message}`);
     return send(response, 400, { error: error.message });
   }
 });
 
-server.listen(port, '0.0.0.0', () => console.info(`Setup UI listening on port ${port}`));
+server.listen(port, '0.0.0.0', () => logger.info(`Setup UI listening on port ${port}`));
 
 function shutdown() {
+  logger.info('Stopping setup server and bridge');
   bridge?.stop();
   server.close();
 }

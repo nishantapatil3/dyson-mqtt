@@ -30,6 +30,10 @@ Configuration keys:
 
 Set `DYSON_MQTT_CONFIG` to use another config file path.
 
+## Logs
+
+The bridge writes timestamped logs to standard output and error. View container logs with `docker compose logs -f dyson-mqtt`. The default `info` level reports startup, connection changes, setup progress, and commands. Set `DYSON_MQTT_LOG_LEVEL` to `error`, `warn`, `info`, or `debug` to change the detail; `debug` also reports MQTT topics and Dyson message types. Logs omit MQTT payloads, account credentials, and tokens.
+
 ## Topics
 
 For serial `AB1-CD` and default prefix:
