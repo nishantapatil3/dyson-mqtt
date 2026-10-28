@@ -3,7 +3,7 @@ LABEL org.opencontainers.image.title="dyson-mqtt" \
       org.opencontainers.image.description="Cloud MQTT bridge for Dyson devices" \
       org.opencontainers.image.source="https://github.com/nishantapatil3/dyson-mqtt" \
       org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.version="0.1.3"
+      org.opencontainers.image.version="0.1.4"
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
