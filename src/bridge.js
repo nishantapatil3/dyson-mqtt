@@ -1,10 +1,9 @@
 import mqtt from 'mqtt';
 import { createHash } from 'node:crypto';
-import { commandFromTopic, mergeProductState, parseMessage, stateView } from './protocol.js';
-import { discoveryMessages } from './discovery.js';
+import { parseMessage } from './protocol.js';
+import { deviceProtocol } from './device-protocol.js';
+import { isRobot } from './device-types.js';
 import { DysonCloud } from './dyson-cloud.js';
-
-const REQUESTS = ['REQUEST-CURRENT-STATE', 'REQUEST-PRODUCT-ENVIRONMENT-CURRENT-SENSOR-DATA', 'REQUEST-CURRENT-FAULTS'];
 
 export class DysonBridge {
   constructor(config, connect = mqtt.connect, logger = console, cloud = null) {
@@ -42,9 +41,8 @@ export class DysonBridge {
       });
       this.publish(`${config.topicPrefix}/bridge/availability`, 'online');
       for (const [serial, device] of this.devices) {
-        for (const [topic, discovery] of discoveryMessages(config, device.config)) this.publish(topic, discovery);
         this.publish(`${this.base(serial)}/availability`, device.online ? 'online' : 'offline');
-        if (device.online) this.publish(`${this.base(serial)}/state`, stateView(device.product, device.sensors));
+        if (device.online) this.publish(`${this.base(serial)}/state`, deviceProtocol(device.config).view(device.product, device.sensors));
       }
     });
     this.broker.on('message', (topic, payload, packet) => {
@@ -75,7 +73,7 @@ export class DysonBridge {
       device.online = true;
       this.logger.info(`Connected to Dyson ${serial}`);
       const root = `${details.productType}/${serial}`;
-      client.subscribe([`${root}/status/current`, `${root}/status/connection`, `${root}/status/faults`], error => {
+      client.subscribe(deviceProtocol(details).statusTopics.map(suffix => `${root}/${suffix}`), error => {
         if (error) this.logger.error(`Dyson ${serial} subscribe failed: ${error.message}`);
         else this.requestState(serial);
       });
@@ -118,7 +116,7 @@ export class DysonBridge {
         device.retryDelay = 1000;
         this.logger.info(`Connected to Dyson cloud for ${serial}`);
         const root = `${device.config.productType}/${serial}`;
-        client.subscribe([`${root}/status/current`, `${root}/status/connection`, `${root}/status/faults`], { qos: 1 }, error => {
+        client.subscribe(deviceProtocol(device.config).statusTopics.map(suffix => `${root}/${suffix}`), { qos: 1 }, error => {
           if (error) this.logger.error(`Dyson ${serial} subscribe failed: ${error.message}`);
           else this.requestState(serial);
         });
@@ -159,7 +157,7 @@ export class DysonBridge {
     const device = this.devices.get(serial);
     if (!client?.connected) return;
     const topic = `${device.config.productType}/${serial}/command`;
-    for (const msg of REQUESTS) client.publish(topic, JSON.stringify({ msg, time: new Date().toISOString() }));
+    for (const msg of deviceProtocol(device.config).requests) client.publish(topic, JSON.stringify({ msg, time: new Date().toISOString() }));
     this.logger.debug?.(`Requested state from Dyson ${serial}`);
   }
 
@@ -180,14 +178,19 @@ export class DysonBridge {
       }
     }
     if (message.msg === 'CURRENT-STATE' || message.msg === 'STATE-CHANGE') {
-      device.product = mergeProductState(device.product, message);
+      device.product = deviceProtocol(device.config).merge(device.product, message);
+      if (isRobot(device.config)) {
+        this.publish(`${this.base(serial)}/faults`, {
+          faults: device.product.faults ?? {}, activeFaults: device.product.activeFaults ?? []
+        });
+      }
     } else if (message.msg === 'ENVIRONMENTAL-CURRENT-SENSOR-DATA' && message.data && typeof message.data === 'object') {
       device.sensors = { ...device.sensors, ...message.data };
     } else if (message.msg === 'CURRENT-FAULTS' || message.msg === 'FAULTS-CHANGE') {
       this.publish(`${this.base(serial)}/faults`, message);
     }
     if (message.msg === 'CURRENT-STATE' || message.msg === 'STATE-CHANGE' || message.msg === 'ENVIRONMENTAL-CURRENT-SENSOR-DATA') {
-      this.publish(`${this.base(serial)}/state`, stateView(device.product, device.sensors));
+      this.publish(`${this.base(serial)}/state`, deviceProtocol(device.config).view(device.product, device.sensors));
     }
     this.publish(`${this.base(serial)}/raw/${message.msg.toLowerCase().replace(/[^a-z0-9-]/g, '_')}`, message, false);
   }
@@ -206,7 +209,7 @@ export class DysonBridge {
       return;
     }
     try {
-      const message = commandFromTopic(command, payload, device.product);
+      const message = deviceProtocol(device.config).command(command, payload, device.product);
       client.publish(`${device.config.productType}/${serial}/command`, JSON.stringify(message), error => {
         if (error) this.logger.error(`Dyson ${serial} command failed: ${error.message}`);
         else this.logger.info(`Sent ${command} command to Dyson ${serial}`);

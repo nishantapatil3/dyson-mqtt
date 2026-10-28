@@ -1,7 +1,6 @@
 {
   "mqttUrl": "mqtt://localhost:1883",
   "topicPrefix": "dyson",
-  "discoveryPrefix": "homeassistant",
   "mode": "cloud",
   "dysonCloud": { "token": "YOUR_MYDYSON_ACCESS_TOKEN", "china": false },
   "pollIntervalSeconds": 300,

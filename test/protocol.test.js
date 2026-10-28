@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { commandFromTopic, mergeProductState, stateView } from '../src/protocol.js';
-import { discoveryMessages } from '../src/discovery.js';
 
 test('merges Dyson state changes using the new value', () => {
   const first = mergeProductState({}, { msg: 'CURRENT-STATE', 'product-state': { fpwr: 'OFF', fnsp: '0001' } });
@@ -34,13 +33,4 @@ test('thermostat modes control power and heating together', () => {
   assert.deepEqual(commandFromTopic('mode', Buffer.from('OFF')).data, { fpwr: 'OFF', hmod: 'OFF' });
   assert.deepEqual(commandFromTopic('mode', Buffer.from('cool'), { fmod: 'OFF' }).data, { fmod: 'FAN', hmod: 'OFF' });
   assert.throws(() => commandFromTopic('mode', Buffer.from('AUTO')));
-});
-
-test('discovery uses stable identifiers and command topics', () => {
-  const messages = discoveryMessages({ topicPrefix: 'dyson', discoveryPrefix: 'homeassistant' }, { serial: 'AB1-CD', name: 'Purifier', productType: '438' });
-  assert.equal(messages[0][0], 'homeassistant/fan/dyson_ab1_cd/config');
-  assert.equal(messages[0][1].percentage_command_topic, 'dyson/AB1-CD/set/percentage');
-  assert.equal(messages[0][1].state_value_template, '{{ value_json.power }}');
-  assert.equal(messages[0][1].payload_oscillation_on, 'ON');
-  assert.equal(messages[0][1].device.serial_number, 'AB1-CD');
 });

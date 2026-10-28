@@ -1,6 +1,8 @@
 # dyson-mqtt
 
-A cloud MQTT bridge for Wi-Fi Dyson fans, purifiers, heaters, and humidifiers. It connects to Dyson's AWS IoT MQTT gateway and republishes state to your broker, including Home Assistant MQTT discovery. Device IP addresses are not needed.
+Cloud MQTT bridge for Dyson devices.
+
+Supports Wi-Fi Dyson fans, purifiers, heaters, humidifiers, and 360 robot vacuums (Eye, Heurist, and Vis Nav). It connects to Dyson's AWS IoT MQTT gateway and republishes state to your broker. Device IP addresses are not needed.
 
 ## Setup
 
@@ -22,11 +24,10 @@ Configuration keys:
 | --- | --- |
 | `mqttUrl` | Your MQTT broker URL, including credentials if required |
 | `topicPrefix` | Published topic root; defaults to `dyson` |
-| `discoveryPrefix` | Home Assistant discovery root; defaults to `homeassistant` |
 | `pollIntervalSeconds` | Request state periodically; `0` disables polling |
 | `mode` | `cloud` for the Dyson AWS IoT gateway |
 | `dysonCloud` | MyDyson `token` and optional `china` flag |
-| `devices` | Array of `name`, `serial`, and `productType` |
+| `devices` | Array of `name`, `serial`, and `productType` (the MQTT root topic from the manifest) |
 
 Set `DYSON_MQTT_CONFIG` to use another config file path.
 
@@ -48,12 +49,22 @@ For serial `AB1-CD` and default prefix:
 
 `mode` accepts `OFF`, `HEAT`, or `COOL` for heater models: `OFF` powers the device off, `HEAT` powers it on with heating enabled, and `COOL` powers it on with heating disabled (fan only).
 
-The state payload also includes `mode` with the same `OFF`, `HEAT`, and `COOL` values. For a Homebridge `mqttthing` thermostat, allow target heating/cooling states `[0, 1, 2]`, read `mode` from `dyson/AB1-CD/state`, and publish target state changes to `dyson/AB1-CD/set/mode`. Replace `AB1-CD` with the device serial. `COOL` is fan-only operation, not active refrigeration.
+The state payload also includes `mode` with the same `OFF`, `HEAT`, and `COOL` values. Read it from `dyson/AB1-CD/state` and publish mode changes to `dyson/AB1-CD/set/mode`. `COOL` is fan-only operation, not active refrigeration.
 
-Commands: `power`, `auto`, `oscillation`, `night_mode`, `direction`, `continuous_monitoring`, `heating`, and `humidification` accept `ON` or `OFF`. `speed` accepts `1`–`10`; `percentage` accepts `0`–`100` (`0` turns the fan off). `preset_mode` accepts `Auto` or `Manual`. `target_temperature` accepts Celsius `1`–`37`; `humidity_target` accepts `30`–`70`. `request` with payload `STATE` requests a fresh product state. Unsupported controls are ignored by the device; capabilities vary by model.
+Air treatment commands: `power`, `auto`, `oscillation`, `night_mode`, `direction`, `continuous_monitoring`, `heating`, and `humidification` accept `ON` or `OFF`. `speed` accepts `1`–`10`; `percentage` accepts `0`–`100` (`0` turns the fan off). `preset_mode` accepts `Auto` or `Manual`. `target_temperature` accepts Celsius `1`–`37`; `humidity_target` accepts `30`–`70`. `request` with payload `STATE` requests a fresh product state. Unsupported controls are ignored by the device; capabilities vary by model.
 
-Home Assistant discovery publishes a fan and environmental sensors. The bridge publishes measured VOC and NO₂ values as **indices**, not concentrations. Raw Dyson values are preserved in `product_state` and `sensor_data` for model-specific automations.
+The bridge publishes measured VOC and NO₂ values as **indices**, not concentrations. Raw Dyson values are preserved in `product_state` and `sensor_data` for model-specific automations.
+
+## Robot vacuums
+
+The setup page also lists supported MQTT-connected robot vacuums. Robot type is detected from `productType`: `N223` (360 Eye), `276` (360 Heurist), or `277` (360 Vis Nav). These values also work with manual configuration.
+
+Publish `start`, `pause`, `resume`, `stop`, or `return_to_base` to `dyson/<serial>/set/vacuum`. Starting a paused robot resumes its clean. Both `stop` and `return_to_base` abort cleaning and return to the dock. Publish `STATE` to `dyson/<serial>/set/request` to request status. Air treatment commands are rejected for robots.
+
+Robot state includes `state` (`cleaning`, `paused`, `returning`, `docked`, `idle`, `error`, or `null` before status is known), `battery_level`, `dyson_state`, and the original fields in `product_state`. State changes preserve previously reported battery data. Embedded robot faults are also published to the faults topic.
+
+Robot support covers basic cleaning controls and status through the JSON MQTT protocol. Maps, zones, schedules, suction settings, and newer robots using other protocols (including Spot+Scrub Ai) are not supported. Devices without compatible MQTT connectivity are excluded from setup. This implementation has automated protocol tests; physical device validation is still needed.
 
 ## Scope and protocol notes
 
-This release bridges Dyson air treatment devices through Dyson's cloud MQTT gateway. It does not bridge robot vacuums. If the MyDyson access token expires, log in again through the setup page. Device protocol behavior is based on [ha-dyson](https://github.com/libdyson-wg/ha-dyson), [ioBroker.dysonairpurifier](https://github.com/Grizzelbee/ioBroker.dysonairpurifier), and [matterbridge-dyson-robot](https://github.com/thoukydides/matterbridge-dyson-robot). The Dyson protocol is unofficial and model behavior may differ.
+This release bridges supported Dyson air treatment devices and 360 robot vacuums through Dyson's cloud MQTT gateway. If the MyDyson access token expires, log in again through the setup page. Device protocol behavior is based on [ha-dyson](https://github.com/libdyson-wg/ha-dyson), [ioBroker.dysonairpurifier](https://github.com/Grizzelbee/ioBroker.dysonairpurifier), and [matterbridge-dyson-robot](https://github.com/thoukydides/matterbridge-dyson-robot). The Dyson protocol is unofficial and model behavior may differ.

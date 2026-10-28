@@ -104,7 +104,7 @@ const server = createServer(async (request, response) => {
       return found;
     });
     if (!devices.length) throw new Error('Select at least one device');
-    const config = { mode: 'cloud', dysonCloud: authorized, mqttUrl: body.mqttUrl, topicPrefix: 'dyson', discoveryPrefix: 'homeassistant', pollIntervalSeconds: 300, devices };
+    const config = { mode: 'cloud', dysonCloud: authorized, mqttUrl: body.mqttUrl, topicPrefix: 'dyson', pollIntervalSeconds: 300, devices };
     await mkdir(dirname(configPath), { recursive: true });
     await writeFile(configPath, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
     await startBridge();

@@ -1,4 +1,5 @@
 import { createDecipheriv } from 'node:crypto';
+import { manifestDeviceSupported } from './device-types.js';
 
 const GLOBAL_API = 'https://appapi.cp.dyson.com';
 const CHINA_API = 'https://appapi.cp.dyson.cn';
@@ -48,7 +49,7 @@ export class DysonCloud {
   async devices(token) {
     const result = await this.request('/v3/manifest', undefined, token);
     if (!Array.isArray(result)) throw new Error('Dyson returned an unexpected device list');
-    return result.filter(device => device.category === 'ec' && device.connectedConfiguration?.mqtt?.mqttRootTopicLevel)
+    return result.filter(manifestDeviceSupported)
       .map(device => ({
         serial: device.serialNumber,
         name: device.name || device.productName || device.serialNumber,

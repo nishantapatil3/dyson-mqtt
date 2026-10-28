@@ -14,8 +14,12 @@
 </style>
 <main>
   <h1>Dyson MQTT</h1>
-  <p class="hint">Connect your MyDyson account to bridge supported air treatment devices through Dyson's cloud MQTT gateway. No device IP address is needed.</p>
+  <p class="hint">Connect your MyDyson account to bridge supported Dyson devices through Dyson's cloud MQTT gateway. No device IP address is needed.</p>
   <p id="status">Checking bridge…</p><p id="message" role="status"></p>
+  <section id="authenticated" hidden>
+    <p class="ok" role="status">Authentication completed</p>
+    <button id="sign-in-again" type="button">Sign in again</button>
+  </section>
   <section id="login">
     <h2>1. Request email code</h2>
     <form id="start"><label for="email">MyDyson email</label><input id="email" type="email" autocomplete="username" required><label><input id="china" type="checkbox"> Account registered in China</label><button>Send code</button></form>
@@ -31,13 +35,15 @@
 </main>
 <script>
   const $=id=>document.getElementById(id);
-  let devices=[];
+  let devices=[],signingIn=false;
   async function api(path,body){const response=await fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const result=await response.json();if(!response.ok)throw Error(result.error||'Request failed');return result}
   function message(value,error=false){$('message').textContent=value;$('message').className=error?'error':'ok'}
-  async function status(){const result=await(await fetch('/api/status')).json();$('status').textContent=result.running?`Bridge running: ${result.devices.map(d=>`${d.name} (${d.online?'online':'offline'})`).join(', ')}`:'Bridge awaiting setup'}
+  function showAuthentication(completed){$('authenticated').hidden=!completed;$('login').hidden=completed;if(completed){$('verify').hidden=true;$('email').value='';$('password').value='';$('code').value=''}}
+  async function status(){const result=await(await fetch('/api/status')).json();if(!signingIn)showAuthentication(result.authorized);$('status').textContent=result.running?`Bridge running: ${result.devices.map(d=>`${d.name} (${d.online?'online':'offline'})`).join(', ')}`:'Bridge awaiting setup'}
+  $('sign-in-again').onclick=()=>{signingIn=true;showAuthentication(false);$('verify').hidden=true;$('configure').hidden=true;message('Sign in to your MyDyson account.');$('email').focus()};
   $('start').onsubmit=async event=>{event.preventDefault();try{message('Requesting code…');await api('/api/auth/start',{email:$('email').value,china:$('china').checked});$('verify').hidden=false;message('Check your email for the Dyson code.')}catch(error){message(error.message,true)}};
-  function showDevices(found){devices=found;if(!devices.length){message('No supported Dyson air treatment devices were found.',true);return}const container=$('devices');container.replaceChildren();for(const device of devices){const box=document.createElement('div');box.className='device';const label=document.createElement('label');const checked=document.createElement('input');checked.type='checkbox';checked.checked=true;checked.dataset.serial=device.serial;label.append(checked,document.createTextNode(` ${device.name} (${device.serial}, ${device.productType})`));box.append(label);container.append(box)}$('configure').hidden=false;message('Select devices, then save to start the cloud bridge.')}
-  $('finish').onsubmit=async event=>{event.preventDefault();try{message('Verifying…');const result=await api('/api/auth/verify',{password:$('password').value,code:$('code').value});$('password').value='';$('code').value='';showDevices(result.devices)}catch(error){message(error.message,true)}};
+  function showDevices(found){devices=found;if(!devices.length){message('No supported Dyson MQTT devices were found.',true);return}const container=$('devices');container.replaceChildren();for(const device of devices){const box=document.createElement('div');box.className='device';const label=document.createElement('label');const checked=document.createElement('input');checked.type='checkbox';checked.checked=true;checked.dataset.serial=device.serial;label.append(checked,document.createTextNode(` ${device.name} (${device.serial}, ${device.productType})`));box.append(label);container.append(box)}$('configure').hidden=false;message('Select devices, then save to start the cloud bridge.')}
+  $('finish').onsubmit=async event=>{event.preventDefault();try{message('Verifying…');const result=await api('/api/auth/verify',{password:$('password').value,code:$('code').value});signingIn=false;showAuthentication(true);showDevices(result.devices)}catch(error){message(error.message,true)}};
   $('save').onsubmit=async event=>{event.preventDefault();try{const selected=devices.filter(device=>document.querySelector(`input[data-serial="${device.serial}"]`).checked).map(device=>({serial:device.serial}));await api('/api/configure',{mqttUrl:$('broker').value.trim(),devices:selected});message('Saved. The cloud bridge is starting.');await status()}catch(error){message(error.message,true)}};
   status();fetch('/api/auth/devices').then(response=>response.json()).then(result=>{if(result.devices?.length)showDevices(result.devices)}).catch(()=>{});setInterval(status,10000);
 </script>

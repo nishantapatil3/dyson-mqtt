@@ -3,10 +3,8 @@ import { readFile } from 'node:fs/promises';
 export async function loadConfig(path = process.env.DYSON_MQTT_CONFIG ?? './config.json') {
   const config = JSON.parse(await readFile(path, 'utf8'));
   if (!config.mqttUrl || !/^mqtts?:\/\//.test(config.mqttUrl)) throw new Error('mqttUrl must be an mqtt:// or mqtts:// URL');
-  for (const key of ['topicPrefix', 'discoveryPrefix']) {
-    config[key] ??= key === 'topicPrefix' ? 'dyson' : 'homeassistant';
-    if (!/^[\w-]+(?:\/[\w-]+)*$/.test(config[key])) throw new Error(`Invalid ${key}`);
-  }
+  config.topicPrefix ??= 'dyson';
+  if (!/^[\w-]+(?:\/[\w-]+)*$/.test(config.topicPrefix)) throw new Error('Invalid topicPrefix');
   config.pollIntervalSeconds ??= 300;
   if (!Number.isInteger(config.pollIntervalSeconds) || config.pollIntervalSeconds < 0) throw new Error('pollIntervalSeconds must be a nonnegative integer');
   if (!Array.isArray(config.devices) || !config.devices.length) throw new Error('Configure at least one device');

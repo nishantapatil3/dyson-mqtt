@@ -36,3 +36,17 @@ test('email challenge, verification, and manifest use the account token', async 
   assert.equal(credentials.Endpoint, 'example.iot.amazonaws.com');
   assert.deepEqual(JSON.parse(requests[4].options.body), { Serial: 'AB1-CD' });
 });
+
+test('manifest discovers air devices and supported 360 robots, excluding incompatible devices', async () => {
+  const entry = (category, productType) => ({ category, serialNumber: `SN-${productType}`, productName: 'Dyson', connectedConfiguration: { mqtt: { mqttRootTopicLevel: productType } } });
+  const cloud = new DysonCloud(false, async () => ({ ok: true, json: async () => [
+    entry('ec', '438'), entry('robot', 'N223'), entry('robot', '276'), entry('robot', '277'),
+    entry('robot', 'RB05'), entry('light', 'CD06'), entry('robot', 'unknown'),
+    { category: 'robot', serialNumber: 'OFFLINE', connectedConfiguration: null },
+    entry('ec', 'bad/topic')
+  ] }));
+  const devices = await cloud.devices('token');
+  assert.deepEqual(devices.map(device => device.productType), ['438', 'N223', '276', '277']);
+  assert.equal(devices[1].name, 'Dyson');
+  assert.deepEqual(Object.keys(devices[1]).sort(), ['name', 'productType', 'serial']);
+});

@@ -18,7 +18,7 @@ class FakeClient extends EventEmitter {
 
 test('bridges state and valid commands between separate MQTT connections', () => {
   const clients = [];
-  const config = { mqttUrl: 'mqtt://broker', topicPrefix: 'dyson', discoveryPrefix: 'homeassistant', pollIntervalSeconds: 0,
+  const config = { mqttUrl: 'mqtt://broker', topicPrefix: 'dyson', pollIntervalSeconds: 0,
     devices: [{ name: 'Purifier', host: '192.0.2.10', port: 1883, serial: 'AB1-CD', productType: '438', password: 'secret' }] };
   const bridge = new DysonBridge(config, (_url, _options) => { const client = new FakeClient(); clients.push(client); return client; }, { info() {}, warn() {}, error() {} });
   bridge.start();
@@ -39,12 +39,13 @@ test('bridges state and valid commands between separate MQTT connections', () =>
   assert.equal(dyson.published.length, count);
   dyson.emit('close');
   assert.equal(broker.published.findLast(item => item.topic === 'dyson/AB1-CD/availability').payload, 'offline');
+  assert.ok(broker.published.every(item => item.topic.startsWith('dyson/')));
   bridge.stop();
 });
 
 test('invalid command logs omit the payload', () => {
   const warnings = [];
-  const config = { mqttUrl: 'mqtt://broker', topicPrefix: 'dyson', discoveryPrefix: 'homeassistant', pollIntervalSeconds: 0,
+  const config = { mqttUrl: 'mqtt://broker', topicPrefix: 'dyson', pollIntervalSeconds: 0,
     devices: [{ name: 'Purifier', host: '192.0.2.10', port: 1883, serial: 'AB1-CD', productType: '438', password: 'secret' }] };
   const bridge = new DysonBridge(config, () => new FakeClient(), { info() {}, warn(message) { warnings.push(message); }, error() {} });
   bridge.start();
